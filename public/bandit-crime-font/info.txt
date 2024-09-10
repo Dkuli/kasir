@@ -1,2 +1,2 @@
-﻿license: Freeware, Non-Commercial
-link: https://www.fontspace.com/bandit-crime-font-f105077
+﻿license: Freeware, commercial use requires donation
+link: https://www.fontspace.com/monainn-font-f102256

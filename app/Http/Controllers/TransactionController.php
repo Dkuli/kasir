@@ -87,7 +87,7 @@ class TransactionController extends Controller
     private function updateProductStock($productId, $quantity)
     {
         $product = Product::findOrFail($productId);
-        $product->stok = max(0, $product->stok - $quantity); 
+        $product->stok = max(0, $product->stok - $quantity);
         $product->save();
     }
 
@@ -108,4 +108,17 @@ class TransactionController extends Controller
                            ->get();
         return response()->json($products);
     }
+
+    public function history()
+{
+    $transactions = Transaction::with('products')->orderBy('created_at', 'desc')->paginate(10);
+    return view('transaction.history', compact('transactions'));
+}
+
+public function show($id)
+{
+    $transaction = Transaction::with('products')->findOrFail($id);
+    return response()->json(['transaction' => $transaction]);
+}
+
 }

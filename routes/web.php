@@ -48,6 +48,8 @@ Route::post('/transactions', [TransactionController::class, 'store'])->name('tra
 Route::get('/transactions/search', [TransactionController::class, 'searchProducts'])->name('transactions.search');
 Route::get('/transactions/get-product/{kode_barang}', [TransactionController::class, 'getProduct'])->name('transactions.get-product');
 Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
+Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
+Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
 
 
 // Rute untuk form import dan import produk
