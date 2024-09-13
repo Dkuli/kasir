@@ -25,16 +25,27 @@ class TransactionController extends Controller
         DB::beginTransaction();
 
         try {
+            // Membuat transaksi baru
             $transaction = $this->createTransaction($validatedData);
+
+            // Memproses item transaksi (produk dan update stok)
             $this->processTransactionItems($transaction, $validatedData['items']);
 
+            // Commit transaksi database
             DB::commit();
-            return response()->json(['success' => true, 'message' => 'Transaksi berhasil disimpan.']);
+
+            // Return JSON response
+            return response()->json(['success' => true, 'transaction' => $transaction->load('products')]);
+
         } catch (\Exception $e) {
+            // Rollback jika terjadi kesalahan
             DB::rollback();
+
+            // Mengembalikan respon kesalahan
             return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
         }
     }
+
 
     public function getProduct($kode_barang)
     {
@@ -51,13 +62,13 @@ class TransactionController extends Controller
     {
         return $request->validate([
             'kode_transaksi' => 'required|unique:transactions',
-            'total_harga' => 'required|numeric',
-            'bayar' => 'required|numeric',
-            'kembali' => 'required|numeric',
-            'items' => 'required|array',
+            'total_harga' => 'required|numeric|min:0',
+            'bayar' => 'required|numeric|min:0',
+            'kembali' => 'required|numeric|min:0',
+            'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric',
+            'items.*.price' => 'required|numeric|min:0',
         ]);
     }
 
@@ -69,36 +80,53 @@ class TransactionController extends Controller
             'bayar' => $data['bayar'],
             'kembali' => $data['kembali'],
             'user_id' => auth()->id(),
+
         ]);
+
     }
 
     private function processTransactionItems(Transaction $transaction, array $items)
     {
         foreach ($items as $item) {
+            $product = Product::findOrFail($item['product_id']);
+
+            if ($product->stok < $item['quantity']) {
+                throw new \Exception("Stok tidak mencukupi untuk produk: {$product->nama_barang}");
+            }
+
             $transaction->products()->attach($item['product_id'], [
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
             ]);
 
-            $this->updateProductStock($item['product_id'], $item['quantity']);
+            $this->updateProductStock($product, $item['quantity']);
+
         }
+
     }
 
-    private function updateProductStock($productId, $quantity)
+    private function updateProductStock(Product $product, $quantity)
     {
-        $product = Product::findOrFail($productId);
-        $product->stok = max(0, $product->stok - $quantity);
+        $product->stok -= $quantity;
         $product->save();
     }
 
-
-
     private function generateTransactionCode()
     {
-        $now = Carbon::now();
-        return 'T' . $now->format('dmYHis');
-    }
+        $prefix = 'T' . Carbon::now()->format('Ymd');
+        $lastTransaction = Transaction::where('kode_transaksi', 'like', $prefix . '%')
+            ->orderBy('kode_transaksi', 'desc')
+            ->first();
 
+        if ($lastTransaction) {
+            $lastNumber = intval(substr($lastTransaction->kode_transaksi, -4));
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+
+        return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+    }
 
     public function searchProducts(Request $request)
     {
@@ -109,16 +137,35 @@ class TransactionController extends Controller
         return response()->json($products);
     }
 
-    public function history()
-{
-    $transactions = Transaction::with('products')->orderBy('created_at', 'desc')->paginate(10);
-    return view('transaction.history', compact('transactions'));
-}
+    public function history(Request $request)
+    {
+        $transactions = Transaction::with('products')
+            ->when($request->date_from, function($query) use ($request) {
+                return $query->whereDate('created_at', '>=', $request->date_from);
+            })
+            ->when($request->date_to, function($query) use ($request) {
+                return $query->whereDate('created_at', '<=', $request->date_to);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
 
-public function show($id)
+        return view('transaction.history', compact('transactions',));
+    }
+
+    public function show($id)
+    {
+        $transaction = Transaction::with('products', 'user')->findOrFail($id);
+        return response()->json(['transaction' => $transaction]);
+    }
+
+    public function success($id)
 {
+    // Mendapatkan detail transaksi berdasarkan ID
     $transaction = Transaction::with('products')->findOrFail($id);
-    return response()->json(['transaction' => $transaction]);
+
+    // Menampilkan view sukses transaksi
+    return view('transaction.success', compact('transaction'));
 }
 
 }
+

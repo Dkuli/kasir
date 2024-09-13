@@ -22,10 +22,14 @@
                         </div>
                     </div>
                     <div class="space-x-2 flex">
-                        <button type="button" class="bg-gray-200 hover:bg-gray-300 text-blue-700 p-2 rounded-full transition" onclick="openProductSearch()">
+                        <button type="button"
+                            class="bg-gray-200 hover:bg-gray-300 text-blue-700 p-2 rounded-full transition"
+                            onclick="openProductSearch()">
                             <x-heroicon-s-search class="w-6 h-6" />
                         </button>
-                        <button type="button" class="bg-gray-200 hover:bg-gray-300 text-blue-700 p-2 rounded-full transition" onclick="openScanModal()">
+                        <button type="button"
+                            class="bg-gray-200 hover:bg-gray-300 text-blue-700 p-2 rounded-full transition"
+                            onclick="openScanModal()">
                             <x-heroicon-s-qrcode class="w-6 h-6" />
                         </button>
                     </div>
@@ -94,7 +98,8 @@
                     </div>
                     <div class="mt-6">
                         <button type="submit" id="btn_transaction"
-                            class="w-full bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition disabled:opacity-50" disabled>
+                            class="w-full bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+                            disabled>
                             Selesai
                         </button>
                     </div>
@@ -103,7 +108,8 @@
         </form>
 
         <!-- Product Search Modal -->
-        <div id="productSearchModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div id="productSearchModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
             <div class="bg-white rounded-lg shadow-md max-w-md w-full p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h5 class="text-lg font-semibold">Cari Barang</h5>
@@ -113,7 +119,7 @@
                 </div>
                 <input type="text" id="productSearchInput" class="w-full p-2 border rounded mb-4"
                     placeholder="Cari barang...">
-                <ul id="productSearchResults" class="space-y-2">
+                <ul id="productSearchResults" class="space-y-2 max-h-60 overflow-y-auto">
                     <!-- Search results will be dynamically added here -->
                 </ul>
             </div>
@@ -132,7 +138,8 @@
                 <input type="text" id="barcode-result" class="w-full p-2 border rounded mb-4"
                     placeholder="Hasil scan barcode" readonly>
                 <div class="flex justify-end space-x-4">
-                    <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
+                    <button type="button"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
                         onclick="addScannedProduct()">Tambahkan</button>
                     <button type="button" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition"
                         onclick="resetScanner()">Ulangi</button>
@@ -141,7 +148,8 @@
         </div>
 
         <!-- Success Modal -->
-        <div id="successModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div id="successModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
             <div class="bg-white rounded-lg shadow-md max-w-md w-full p-6">
                 <div class="text-center mb-4">
                     <h4 class="font-semibold text-lg">Transaksi Berhasil</h4>
@@ -154,13 +162,18 @@
                 </div>
             </div>
         </div>
+
+        <!-- Notification Container -->
+        <div id="notificationContainer" class="fixed bottom-4 right-4 z-50"></div>
     </div>
 
 
+
+
     <!-- JavaScript Logic -->
-        <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-        <script>
+    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
         $(document).ready(function() {
             let orders = [];
             const $total_bayar = $('#total_bayar');
@@ -171,34 +184,31 @@
             const $productSearchInput = $('#productSearchInput');
             const $productSearchResults = $('#productSearchResults');
             const $scanModal = $('#scanModal');
-            const $successModal = $('#successModal');
             const $kode_transaksi_display = $('#kode_transaksi');
             const $kode_transaksi_input = $('input[name="kode_transaksi"]');
 
-            function addToOrder(id, nama, harga) {
+            function addToOrder(id, nama, harga, stok) {
                 const existingOrder = orders.find(o => o.id == id);
                 if (existingOrder) {
-                    existingOrder.jumlah += 1;
+                    if (existingOrder.jumlah < stok) {
+                        existingOrder.jumlah += 1;
+                    } else {
+                        showNotification('Stok tidak mencukupi', 'error');
+                        return;
+                    }
                 } else {
                     const order = {
                         id,
                         nama,
                         harga: parseFloat(harga),
-                        jumlah: 1
+                        jumlah: 1,
+                        stok
                     };
                     orders.push(order);
                 }
                 updateOrderList();
                 calculateTotal();
-
-                // Provide visual feedback
-                const $productItem = $(`li:contains('${nama}')`);
-                if ($productItem.length) {
-                    $productItem.addClass('bg-green-200');
-                    setTimeout(() => {
-                        $productItem.removeClass('bg-green-200');
-                    }, 500);
-                }
+                showNotification(`${nama} ditambahkan ke pesanan`, 'success');
             }
 
             function updateOrderList() {
@@ -207,18 +217,18 @@
 
                 orders.forEach((order, index) => {
                     const $row = $('<tr>').html(`
-                        <td class="px-4 py-2">${order.nama}</td>
-                        <td class="px-4 py-2 text-right">Rp. ${order.harga.toFixed(2)}</td>
-                        <td class="px-4 py-2 text-center">
-                            <input type="number" min="1" value="${order.jumlah}" class="w-16 text-center bg-gray-100 border-none focus:ring-0" data-index="${index}">
-                        </td>
-                        <td class="px-4 py-2 text-right">Rp. ${(order.harga * order.jumlah).toFixed(2)}</td>
-                        <td class="px-4 py-2 text-center">
-                            <button type="button" class="text-red-500 remove-order" data-index="${index}">
-                                <i class="mdi mdi-delete"></i>
-                            </button>
-                        </td>
-                    `);
+                <td class="px-4 py-2">${order.nama}</td>
+                <td class="px-4 py-2 text-right">Rp. ${order.harga.toFixed(2)}</td>
+                <td class="px-4 py-2 text-center">
+                    <input type="number" min="1" max="${order.stok}" value="${order.jumlah}" class="w-16 text-center bg-gray-100 border-none focus:ring-0" data-index="${index}">
+                </td>
+                <td class="px-4 py-2 text-right">Rp. ${(order.harga * order.jumlah).toFixed(2)}</td>
+                <td class="px-4 py-2 text-center">
+                    <button type="button" class="text-red-500 remove-order" data-index="${index}">
+                        <i class="mdi mdi-delete"></i>
+                    </button>
+                </td>
+            `);
                     $orderList.append($row);
                 });
             }
@@ -236,19 +246,24 @@
 
             function updateJumlah(index, jumlah) {
                 const qty = parseInt(jumlah);
+                const order = orders[index];
                 if (isNaN(qty) || qty < 1) {
-                    orders[index].jumlah = 1;
+                    order.jumlah = 1;
+                } else if (qty > order.stok) {
+                    order.jumlah = order.stok;
+                    showNotification('Jumlah melebihi stok yang tersedia', 'error');
                 } else {
-                    orders[index].jumlah = qty;
+                    order.jumlah = qty;
                 }
                 updateOrderList();
                 calculateTotal();
             }
 
             function removeOrder(index) {
-                orders.splice(index, 1);
+                const removedOrder = orders.splice(index, 1)[0];
                 updateOrderList();
                 calculateTotal();
+                showNotification(`${removedOrder.nama} dihapus dari pesanan`, 'info');
             }
 
             function calculateTotal() {
@@ -279,51 +294,56 @@
                 $productSearchResults.empty();
             }
 
-
-        function displaySearchResults(results) {
-            $productSearchResults.empty();
-            if (results.length === 0) {
-                $productSearchResults.html('<li class="p-2 text-gray-500">Tidak ada produk ditemukan</li>');
-                return;
-            }
-            results.forEach(product => {
-                const $li = $('<li>').addClass('flex justify-between items-center p-2 border rounded bg-blue-50 mb-2 cursor-pointer hover:bg-blue-100')
-                    .html(`<div class="flex-grow">
-                            <p class="font-semibold">${product.kode_barang}</p>
-                            <p class="text-gray-600">${product.nama_barang}</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="bg-gray-200 p-1 rounded"><i class="mdi mdi-cube-outline"></i></span>
-                            <p>${product.stok}</p>
-                        </div>
-                    `);
-                $li.on('click', function(event) {
-                    if (!$(event.target).hasClass('add-to-order-btn')) {
-                        addToOrder(product.id, product.nama_barang, product.harga);
-                    }
+            function displaySearchResults(results) {
+                $productSearchResults.empty();
+                if (results.length === 0) {
+                    $productSearchResults.html('<li class="p-2 text-gray-500">Tidak ada produk ditemukan</li>');
+                    return;
+                }
+                results.forEach(product => {
+                    const $li = $('<li>').addClass(
+                        'flex justify-between items-center p-2 border rounded bg-blue-50 mb-2 cursor-pointer hover:bg-blue-100'
+                    ).html(`
+                <div class="flex-grow">
+                    <p class="font-semibold">${product.kode_barang}</p>
+                    <p class="text-gray-600">${product.nama_barang}</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="bg-gray-200 p-1 rounded"><i class="mdi mdi-cube-outline"></i></span>
+                    <p>${product.stok}</p>
+                </div>
+            `);
+                    $li.on('click', function() {
+                        addToOrder(product.id, product.nama_barang, product.harga, product.stok);
+                        closeProductSearch();
+                    });
+                    $productSearchResults.append($li);
                 });
-                $productSearchResults.append($li);
-            });
-        }
+            }
 
-        $productSearchInput.on('input', function() {
+            $productSearchInput.on('input', function() {
                 const query = $(this).val().trim();
                 if (query.length === 0) {
                     $productSearchResults.empty();
                     return;
                 }
                 $.ajax({
-                    url: '{{ route("transactions.search") }}',
+                    url: '{{ route('transactions.search') }}',
                     method: 'GET',
-                    data: { query: query },
+                    data: {
+                        query: query
+                    },
                     success: function(results) {
                         displaySearchResults(results);
                     },
                     error: function(xhr) {
                         console.error('Error searching products:', xhr.responseText);
+                        showNotification('Terjadi kesalahan saat mencari produk', 'error');
                     }
                 });
             });
+
+
 
             function openScanModal() {
                 $scanModal.removeClass('hidden');
@@ -354,7 +374,7 @@
                     }
                 }, function(err) {
                     if (err) {
-                        alert('Gagal menginisialisasi pemindai barcode');
+                        showNotification('Gagal menginisialisasi pemindai barcode', 'error');
                         return;
                     }
                     Quagga.initialized = true;
@@ -379,7 +399,7 @@
             function addScannedProduct() {
                 const barcode = $('#barcode-result').val().trim();
                 if (barcode.length === 0) {
-                    alert('Barcode kosong');
+                    showNotification('Barcode kosong', 'error');
                     return;
                 }
                 $.ajax({
@@ -389,114 +409,169 @@
                         if (response.success) {
                             const product = response.product;
                             if (product.stok <= 0) {
-                                alert('Stok produk habis');
+                                showNotification('Stok produk habis', 'error');
                                 return;
                             }
-                            addToOrder(product.id, product.nama_barang, product.harga);
+                            addToOrder(product.id, product.nama_barang, product.harga, product.stok);
                         } else {
-                            alert('Produk tidak ditemukan');
+                            showNotification('Produk tidak ditemukan', 'error');
                         }
                     },
                     error: function(xhr) {
                         console.error('Error getting product:', xhr.responseText);
-                        alert('Terjadi kesalahan saat mengambil data produk');
+                        showNotification('Terjadi kesalahan saat mengambil data produk', 'error');
+                    }
+                });
+            }
+
+            function showNotification(message, type = 'info') {
+                const icon = type === 'error' ? 'error' : 'success';
+                Swal.fire({
+                    icon: icon,
+                    title: type.charAt(0).toUpperCase() + type.slice(1),
+                    text: message,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    }
+                });
+            }
+
+            function displaySuccessModal(transaction) {
+                const tanggal = new Date(transaction.created_at).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+                const waktu = new Date(transaction.created_at).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const kasir = $('#kasir_name').text();
+
+                Swal.fire({
+                    title: 'Transaksi Berhasil',
+                    html: `
+                <div class="text-left">
+                    <p><strong>Kode Transaksi:</strong> ${transaction.kode_transaksi}</p>
+                    <p><strong>Tanggal:</strong> ${tanggal} ${waktu}</p>
+                    <p><strong>Kasir:</strong> ${kasir}</p>
+                    <p><strong>Total Bayar:</strong> Rp. ${transaction.total_harga.toFixed(2)}</p>
+                    <p><strong>Total Kembali:</strong> Rp. ${transaction.kembali.toFixed(2)}</p>
+                    <h4 class="mt-4 mb-2 font-bold">Daftar Produk:</h4>
+                    <ul class="list-disc list-inside">
+                        ${transaction.products.map(product => `
+                                <li>${product.nama_barang} - ${product.pivot.quantity} x Rp. ${product.pivot.price.toFixed(2)}</li>
+                            `).join('')}
+                    </ul>
+                </div>
+            `,
+                    icon: 'success',
+                    confirmButtonText: 'OK',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = '{{ route('transactions.index') }}';
                     }
                 });
             }
 
             $('#transaction_form').on('submit', function(e) {
-        e.preventDefault();
-        if (orders.length === 0) {
-            alert('Mohon tambahkan barang ke daftar pesanan terlebih dahulu.');
-            return;
-        }
-        if (parseFloat($total_kembali.text()) < 0) {
-            alert('Jumlah bayar kurang dari total belanja.');
-            return;
-        }
-        const formData = {
-            kode_transaksi: $kode_transaksi_input.val(),
-            total_harga: parseFloat($total_bayar.text()),
-            bayar: parseFloat($input_bayar.val()),
-            kembali: parseFloat($total_kembali.text()),
-            items: orders.map(order => ({
-                product_id: order.id,
-                quantity: order.jumlah,
-                price: order.harga
-            }))
-        };
-        $.ajax({
-            url: '{{ route("transactions.store") }}',
-            method: 'POST',
-            data: JSON.stringify(formData),
-            contentType: 'application/json',
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                if (response.success) {
-                    displaySuccessModal(formData);
-                    // Set a timeout to redirect after showing the success modal
-                    setTimeout(function() {
-                        window.location.href = '{{ route("transactions.index") }}';
-                    }, 3000); // Redirect after 3 seconds
-                } else {
-                    alert('Terjadi kesalahan: ' + response.message);
+                e.preventDefault();
+                if (orders.length === 0) {
+                    showNotification('Mohon tambahkan barang ke daftar pesanan terlebih dahulu.',
+                    'warning');
+                    return;
                 }
-            },
-            error: function(xhr) {
-                alert('Terjadi kesalahan: ' + xhr.responseJSON.message);
+                if (parseFloat($total_kembali.text()) < 0) {
+                    showNotification('Jumlah bayar kurang dari total belanja.', 'warning');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Konfirmasi Transaksi',
+                    text: "Apakah Anda yakin ingin menyelesaikan transaksi ini?",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Selesaikan!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        submitTransaction();
+                    }
+                });
+            });
+
+            function submitTransaction() {
+                const formData = {
+                    kode_transaksi: $kode_transaksi_input.val(),
+                    total_harga: parseFloat($total_bayar.text()),
+                    bayar: parseFloat($input_bayar.val()),
+                    kembali: parseFloat($total_kembali.text()),
+                    items: orders.map(order => ({
+                        product_id: order.id,
+                        quantity: order.jumlah,
+                        price: order.harga
+                    }))
+                };
+
+                $.ajax({
+                    url: '{{ route('transactions.store') }}',
+                    method: 'POST',
+                    data: JSON.stringify(formData),
+                    contentType: 'application/json',
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            window.location.href = '{{ route('transactions.success', '') }}/' +
+                                response.transaction.id;
+                        } else {
+                            showNotification('Terjadi kesalahan: ' + response.message, 'error');
+                        }
+                    },
+                    error: function(xhr) {
+                        showNotification('Terjadi kesalahan: ' + xhr.responseJSON.message, 'error');
+                    }
+                });
             }
-        });
-    });
 
-    function displaySuccessModal(data) {
-        const transactionCode = data.kode_transaksi;
-        const tanggal = '{{ date('d M, Y') }}';
-        const waktu = '{{ date('H:i') }}';
-        const kasir = $('#kasir_name').text();
-        const totalBayar = data.total_harga.toFixed(2);
-        const totalKembali = data.kembali.toFixed(2);
-
-        $('#transactionDetails').html(`
-            <table class="w-full text-sm">
-                <tr>
-                    <td><span class="block text-gray-500">Kode Transaksi</span><span class="font-semibold">${transactionCode}</span></td>
-                    <td><span class="block text-gray-500">Tanggal</span><span class="font-semibold">${tanggal}</span></td>
-                </tr>
-                <tr>
-                    <td colspan="2" class="border-t border-gray-300 my-2"></td>
-                </tr>
-                <tr>
-                    <td><span class="block text-gray-500">Nama Kasir</span><span class="font-semibold">${kasir}</span></td>
-                    <td><span class="block text-gray-500">Total Bayar</span><span class="font-semibold">Rp. ${totalBayar}</span></td>
-                </tr>
-                <tr>
-                    <td colspan="2" class="border-t border-gray-300 my-2"></td>
-                </tr>
-                <tr>
-                    <td><span class="block text-gray-500">Total Kembali</span><span class="font-semibold">Rp. ${totalKembali}</span></td>
-                    <td></td>
-                </tr>
-            </table>
-        `);
-        $successModal.removeClass('hidden');
-
-        // Add a message about the upcoming redirect
-        $('#transactionDetails').append(`
-            <p class="mt-4 text-center text-green-600">
-                Transaksi berhasil! Anda akan diarahkan ke halaman transaksi baru dalam 3 detik...
-            </p>
-        `);
-    }
+            $('#btn_cancel_order').on('click', function() {
+                Swal.fire({
+                    title: 'Batalkan Pesanan?',
+                    text: "Semua item dalam pesanan akan dihapus. Apakah Anda yakin?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Batalkan!',
+                    cancelButtonText: 'Tidak'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        resetTransaction();
+                        showNotification('Pesanan telah dibatalkan', 'info');
+                    }
+                });
+            });
 
             function resetTransaction() {
                 orders = [];
                 updateOrderList();
                 calculateTotal();
                 $input_bayar.val('');
+                generateNewTransactionCode();
+            }
+
+            function generateNewTransactionCode() {
                 $.ajax({
-                    url: '{{ route("transactions.generate-code") }}',
+                    url: '{{ route('transactions.generate-code') }}',
                     method: 'GET',
                     success: function(response) {
                         $kode_transaksi_display.text(response.code);
@@ -504,12 +579,62 @@
                     },
                     error: function(xhr) {
                         console.error('Error generating new transaction code:', xhr.responseText);
+                        showNotification('Gagal menghasilkan kode transaksi baru', 'error');
                     }
                 });
             }
 
+            // Initialize the page
+            generateNewTransactionCode();
 
+            // Function to cancel a specific product in the order list
+            function cancelOrderItem(index) {
+                Swal.fire({
+                    title: 'Batalkan Produk?',
+                    text: "Apakah Anda yakin ingin menghapus produk ini dari pesanan?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        removeOrder(index);
+                    }
+                });
+            }
 
+            // Add event listener for cancel button on each product in order list
+            $(document).on('click', '.cancel-order-item', function() {
+                const index = $(this).data('index');
+                cancelOrderItem(index);
+            });
+
+            // Update the updateOrderList function to include the cancel button
+            function updateOrderList() {
+                const $orderList = $('#order_list tbody');
+                $orderList.empty();
+
+                orders.forEach((order, index) => {
+                    const $row = $('<tr>').html(`
+                <td class="px-4 py-2">${order.nama}</td>
+                <td class="px-4 py-2 text-right">Rp. ${order.harga.toFixed(2)}</td>
+                <td class="px-4 py-2 text-center">
+                    <input type="number" min="1" max="${order.stok}" value="${order.jumlah}" class="w-16 text-center bg-gray-100 border-none focus:ring-0" data-index="${index}">
+                </td>
+                <td class="px-4 py-2 text-right">Rp. ${(order.harga * order.jumlah).toFixed(2)}</td>
+                <td class="px-4 py-2 text-center">
+                    <button type="button" class="text-red-500 cancel-order-item" data-index="${index}">
+                        <i class="mdi mdi-delete"></i>
+                    </button>
+                </td>
+            `);
+                    $orderList.append($row);
+                });
+            }
+
+            // Export functions to window object for global access
             window.addToOrder = addToOrder;
             window.openProductSearch = openProductSearch;
             window.closeProductSearch = closeProductSearch;
@@ -518,7 +643,7 @@
             window.openScanModal = openScanModal;
             window.closeScanModal = closeScanModal;
             window.addScannedProduct = addScannedProduct;
-            window.closeSuccessModal = closeSuccessModal;
+            window.cancelOrderItem = cancelOrderItem;
         });
-        </script>
-    </x-app-layout>
+    </script>
+</x-app-layout>

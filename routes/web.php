@@ -6,6 +6,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,6 +33,10 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+
+    Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');
+    Route::get('/reports/form', [ReportController::class, 'showReportForm'])->name('reports.form');
+
 //account
     Route::get('account', [AccountController::class, 'index'])->name('account.index');
 
@@ -50,6 +56,15 @@ Route::get('/transactions/get-product/{kode_barang}', [TransactionController::cl
 Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
 Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
 Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
+Route::get('/transactions/success/{id}', [TransactionController::class, 'success'])->name('transactions.success');
+Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+Route::get('/transactions/search', [TransactionController::class, 'searchProducts'])->name('transactions.search');
+Route::get('/transactions/get-product/{kode_barang}', [TransactionController::class, 'getProduct'])->name('transactions.get-product');
+Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
+Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
+Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
+Route::get('/transactions/success/{id}', [TransactionController::class, 'success'])->name('transactions.success');
 
 
 // Rute untuk form import dan import produk
@@ -70,12 +85,15 @@ Route::resource('transactions', TransactionController::class);
 
 
 
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 Route::resource('categories', CategoryController::class);
 
 
     Route::get('/buttons/text-icon', function () {
         return view('buttons-showcase.text-icon');
     })->middleware(['auth'])->name('buttons.text-icon');
+
+
 
 
 

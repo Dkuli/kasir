@@ -19,7 +19,7 @@
                         <div class="text-3xl font-bold">Rp</div>
                         <div class="ml-4">
                             <p class="text-sm font-semibold">{{ __('Pemasukan Harian') }}</p>
-                            <h5 class="text-2xl mt-2" id="dailyIncome">Rp 0,00</h5>
+                            <h5 class="text-2xl mt-2" id="dailyIncome">Rp {{$dailyIncome}}</h5>
                         </div>
                     </div>
                 </div>
@@ -31,7 +31,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-semibold">{{ __('Pelanggan Harian') }}</p>
-                            <h5 class="text-2xl mt-2" id="dailyCustomers">0 Orang</h5>
+                            <h5 class="text-2xl mt-2" id="dailyCustomers">{{$dailyCustomers}} Orang</h5>
                         </div>
                     </div>
                 </div>
@@ -68,7 +68,7 @@
         <div class="bg-white text-gray-700 shadow-lg p-6 rounded-lg dark:bg-gray-800 dark:text-gray-300">
             <div class="text-center mb-6">
                 <p class="text-sm font-semibold">{{ __('Total Pemasukan') }}</p>
-                <h2 class="text-3xl font-bold mt-2" id="totalIncome">Rp. 0,00</h2>
+                <h2 class="text-3xl font-bold mt-2" id="totalIncome">Rp.{{$totalIncome}} </h2>
                 <p class="text-gray-500 dark:text-gray-400" id="dateRange">{{ __('Tanggal - Tanggal') }}</p>
             </div>
             <hr class="border-gray-200 dark:border-gray-700">
@@ -81,6 +81,7 @@
             <div class="mt-6" id="transactionHistory">
                 <div class="overflow-auto max-h-96">
                     <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @forelse($transactions as $transaction)
                         <li class="py-4 flex items-center justify-between">
                             <div class="flex items-center">
                                 <div class="bg-blue-100 p-2 rounded-lg">
@@ -88,17 +89,17 @@
                                 </div>
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900 dark:text-gray-300">
-                                        Transaksi #123
+                                        {{ $transaction->kode_transaksi }}
                                     </div>
                                     <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center">
-                                        Rp 150.000,00
+                                        Rp {{ number_format($transaction->total_harga, 0, ',', '.') }}
                                         <span class="mx-2">&bull;</span>
                                         Kasir: Admin
                                     </div>
                                 </div>
                             </div>
                             <div class="text-xs text-gray-400 dark:text-gray-500">
-                                15 jam yang lalu
+                                <td class="px-6 py-4 whitespace-nowrap">{{ $transaction->created_at->format('d M Y H:i') }}</td>
                             </div>
                         </li>
                         <li class="py-4 flex items-center justify-between">
@@ -121,6 +122,11 @@
                                 20 jam yang lalu
                             </div>
                         </li>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center">Tidak ada transaksi ditemukan.</td>
+                        </tr>
+                    @endforelse
                         <!-- Tambahkan item daftar lainnya sesuai kebutuhan -->
                     </ul>
                 </div>
@@ -207,7 +213,7 @@
         });
 
         function loadAllTransactions() {
-            window.location.href = "{{ url('/report/transaction') }}";
+            window.location.href = "{{ url('/transactions/history') }}";
         }
     </script>
     @endpush

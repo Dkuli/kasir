@@ -25,7 +25,7 @@
 
         <x-sidebar.sublink
             title="Riwayat Transaksi"
-            href="transactions/history"
+            href="/transactions/history"
             :active="false"
         />
         <x-sidebar.sublink
@@ -46,7 +46,7 @@
 
         <x-sidebar.sublink
             title="Data Produk"
-            href="products"
+            href="/products"
             :active="false"
         />
         <x-sidebar.sublink
