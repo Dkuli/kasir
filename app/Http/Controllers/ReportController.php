@@ -1,55 +1,122 @@
 <?php
 
 namespace App\Http\Controllers;
-use Barryvdh\DomPDF\Facade\Pdf;
-
 
 use App\Models\Transaction;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\TransactionsExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
-// Ensure this is imported
-
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public function salesReport(Request $request)
+    public function index(Request $request)
     {
-        // Validate date range and optional parameters
-        $request->validate([
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'product_name' => 'nullable|string|max:255',
-            'transaction_code' => 'nullable|string|max:255',
-        ]);
+        $query = Transaction::with(['products', 'user']);
 
-        $startDate = Carbon::parse($request->input('start_date'));
-        $endDate = Carbon::parse($request->input('end_date'))->endOfDay();
+        // Apply date range filter
+        if ($request->filled(['start_date', 'end_date'])) {
+            $query->whereBetween('created_at', [
+                Carbon::parse($request->start_date)->startOfDay(),
+                Carbon::parse($request->end_date)->endOfDay()
+            ]);
+        }
 
-        // Start building the query
-        $query = Transaction::with('products')
-            ->whereBetween('created_at', [$startDate, $endDate]);
-
-        // Apply filters
-        if ($request->filled('product_name')) {
-            $query->whereHas('products', function($q) use ($request) {
-                $q->where('nama_barang', 'like', '%' . $request->input('product_name') . '%');
+        // Apply search
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('kode_transaksi', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  });
             });
         }
 
-        if ($request->filled('transaction_code')) {
-            $query->where('kode_transaksi', 'like', '%' . $request->input('transaction_code') . '%');
+        // Apply sorting
+        $sort = $request->sort ?? 'created_at';
+        $direction = $request->direction ?? 'desc';
+        $query->orderBy($sort, $direction);
+
+        $transactions = $query->paginate(15);
+
+        // Calculate summary statistics
+        $totalRevenue = $query->sum('total_harga');
+        $totalTransactions = $query->count();
+        $averageTransactionValue = $totalTransactions > 0 ? $totalRevenue / $totalTransactions : 0;
+
+        // Get top selling products
+        $topProducts = Product::select('products.nama_barang', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+        ->join('transaction_items', 'products.id', '=', 'transaction_items.product_id')
+        ->groupBy('products.id', 'products.nama_barang')
+        ->orderByDesc('total_sold')
+        ->limit(5)
+        ->get();
+
+        // Get daily sales for chart
+        $dailySales = Transaction::select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total_harga) as total_sales'))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        return view('reports.index', compact('transactions', 'totalRevenue', 'totalTransactions', 'averageTransactionValue', 'topProducts', 'dailySales'));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        return Excel::download(new TransactionsExport($request), 'transactions.xlsx');
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $query = Transaction::with(['products', 'user']);
+
+        // Apply filters (same as in index)
+        if ($request->filled(['start_date', 'end_date'])) {
+            $query->whereBetween('created_at', [
+                Carbon::parse($request->start_date)->startOfDay(),
+                Carbon::parse($request->end_date)->endOfDay()
+            ]);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('kode_transaksi', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  });
+            });
         }
 
         $transactions = $query->get();
 
-        // Generate PDF report
-        $pdf = PDF::loadView('reports.sales', compact('transactions', 'startDate', 'endDate'));
+        $totalRevenue = $transactions->sum('total_harga');
+        $totalTransactions = $transactions->count();
+        $averageTransactionValue = $totalTransactions > 0 ? $totalRevenue / $totalTransactions : 0;
 
-        return $pdf->download('sales_report_' . $startDate->format('Ymd') . '_to_' . $endDate->format('Ymd') . '.pdf');
+        // Fetch top-selling products and daily sales
+        $topProducts = Product::select('products.nama_barang', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+            ->join('transaction_items', 'products.id', '=', 'transaction_items.product_id')
+            ->groupBy('products.id', 'products.nama_barang')
+            ->orderByDesc('total_sold')
+            ->limit(5)
+            ->get();
+
+        $dailySales = Transaction::select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total_harga) as total_sales'))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $pdf = PDF::loadView('reports.pdf', compact('transactions', 'totalRevenue', 'totalTransactions', 'averageTransactionValue', 'dailySales', 'topProducts'))
+                  ->setPaper('A4', 'portrait'); // Adjust paper size
+
+        return $pdf->download('transactions_report.pdf');
     }
 
-    public function showReportForm()
-    {
-        return view('reports.form');
-    }
+
 }
+

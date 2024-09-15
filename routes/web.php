@@ -34,8 +34,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
 
-    Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');
-    Route::get('/reports/form', [ReportController::class, 'showReportForm'])->name('reports.form');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
 
 //account
     Route::get('account', [AccountController::class, 'index'])->name('account.index');

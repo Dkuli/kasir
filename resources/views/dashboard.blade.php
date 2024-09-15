@@ -102,26 +102,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $transaction->created_at->format('d M Y H:i') }}</td>
                             </div>
                         </li>
-                        <li class="py-4 flex items-center justify-between">
-                            <div class="flex items-center">
-                                <div class="bg-blue-100 p-2 rounded-lg">
-                                    <x-heroicon-o-switch-vertical class="w-6 h-6 text-blue-500" aria-hidden="true" />
-                                </div>
-                                <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-300">
-                                        Transaksi #124
-                                    </div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center">
-                                        Rp 200.000,00
-                                        <span class="mx-2">&bull;</span>
-                                        Kasir: Admin
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-xs text-gray-400 dark:text-gray-500">
-                                20 jam yang lalu
-                            </div>
-                        </li>
+                      
                     @empty
                         <tr>
                             <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center">Tidak ada transaksi ditemukan.</td>
