@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Transaction;
+use App\Models\Product;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -18,8 +19,9 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
-class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithCustomStartCell
+class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithCustomStartCell, WithEvents
 {
     use Exportable;
 
@@ -58,6 +60,7 @@ class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithSt
     public function headings(): array
     {
         return [
+            'No.',
             'Transaction Code',
             'User',
             'Total (Rp)',
@@ -68,8 +71,8 @@ class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithSt
 
     public function map($transaction): array
     {
-        $this->rowNumber++;
         return [
+            $this->rowNumber++,
             $transaction->kode_transaksi,
             $transaction->user->name,
             number_format($transaction->total_harga, 0, ',', '.'),
@@ -84,55 +87,78 @@ class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithSt
         $lastColumn = $sheet->getHighestColumn();
 
         // Style for title
-        $sheet->mergeCells('A1:E1');
+        $sheet->mergeCells('A1:F1');
         $sheet->getStyle('A1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 16],
+            'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => 'FFFFFF']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']]
+        ]);
+
+        // Style for summary section
+        $sheet->getStyle('A3:C8')->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+        $sheet->getStyle('A3:B3')->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0E0E0']],
+        ]);
+
+        // Style for top products section
+        $sheet->getStyle('E3:F8')->applyFromArray([
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+        ]);
+        $sheet->getStyle('E3:F3')->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E0E0E0']],
         ]);
 
         // Style for headers
-        $sheet->getStyle('A5:E5')->applyFromArray([
-            'font' => ['bold' => true],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DDDDDD']],
+        $sheet->getStyle('A10:F10')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ]);
 
         // Style for data cells
-        $sheet->getStyle('A6:E'.$lastRow)->applyFromArray([
+        $sheet->getStyle('A11:F'.$lastRow)->applyFromArray([
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ]);
 
         // Zebra striping
-        for ($row = 6; $row <= $lastRow; $row++) {
+        for ($row = 11; $row <= $lastRow; $row++) {
             if ($row % 2 == 0) {
                 $sheet->getStyle('A'.$row.':'.$lastColumn.$row)->applyFromArray([
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F3F3F3']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']],
                 ]);
             }
         }
 
         // Auto-filter
-        $sheet->setAutoFilter('A5:E'.$lastRow);
+        $sheet->setAutoFilter('A10:F'.$lastRow);
+
+        // Set text wrap for product column
+        $sheet->getStyle('F11:F'.$lastRow)->getAlignment()->setWrapText(true);
 
         return [
-            5 => ['font' => ['bold' => true]],
+            10 => ['font' => ['bold' => true]],
         ];
     }
 
     public function columnWidths(): array
     {
         return [
-            'A' => 20,
-            'B' => 30,
-            'C' => 15,
-            'D' => 20,
-            'E' => 50,
+            'A' => 5,
+            'B' => 20,
+            'C' => 30,
+            'D' => 15,
+            'E' => 20,
+            'F' => 50,
         ];
     }
 
     public function startCell(): string
     {
-        return 'A5';
+        return 'A10';
     }
 
     public function registerEvents(): array
@@ -144,17 +170,55 @@ class TransactionsExport implements FromQuery, WithHeadings, WithMapping, WithSt
                 // Add title
                 $sheet->setCellValue('A1', 'Transaction Report');
 
+                // Add date range info
+                if ($this->request->filled(['start_date', 'end_date'])) {
+                    $sheet->setCellValue('A2', 'Date Range: ' . Carbon::parse($this->request->start_date)->format('d M Y') . ' - ' . Carbon::parse($this->request->end_date)->format('d M Y'));
+                }
+
                 // Add summary information
                 $totalRevenue = $this->query()->sum('total_harga');
                 $totalTransactions = $this->query()->count();
                 $averageTransactionValue = $totalTransactions > 0 ? $totalRevenue / $totalTransactions : 0;
 
-                $sheet->setCellValue('A2', 'Total Revenue: Rp ' . number_format($totalRevenue, 0, ',', '.'));
-                $sheet->setCellValue('A3', 'Total Transactions: ' . $totalTransactions);
-                $sheet->setCellValue('A4', 'Average Transaction Value: Rp ' . number_format($averageTransactionValue, 0, ',', '.'));
+                $sheet->setCellValue('A3', 'Summary Statistics');
+                $sheet->setCellValue('A4', 'Total Revenue:');
+                $sheet->setCellValue('B4', 'Rp ' . number_format($totalRevenue, 0, ',', '.'));
+                $sheet->setCellValue('A5', 'Total Transactions:');
+                $sheet->setCellValue('B5', $totalTransactions);
+                $sheet->setCellValue('A6', 'Average Transaction Value:');
+                $sheet->setCellValue('B6', 'Rp ' . number_format($averageTransactionValue, 0, ',', '.'));
+
+                // Add top products
+                $topProducts = Product::select('products.nama_barang', DB::raw('SUM(transaction_items.quantity) as total_sold'))
+                    ->join('transaction_items', 'products.id', '=', 'transaction_items.product_id')
+                    ->groupBy('products.id', 'products.nama_barang')
+                    ->orderByDesc('total_sold')
+                    ->limit(5)
+                    ->get();
+
+                $sheet->setCellValue('E3', 'Top 5 Products');
+                $sheet->setCellValue('E4', 'Product Name');
+                $sheet->setCellValue('F4', 'Total Sold');
+
+                $row = 5;
+                foreach ($topProducts as $product) {
+                    $sheet->setCellValue('E' . $row, $product->nama_barang);
+                    $sheet->setCellValue('F' . $row, $product->total_sold);
+                    $row++;
+                }
 
                 // Freeze panes
-                $sheet->freezePane('A6');
+                $sheet->freezePane('A11');
+
+                // Set print area
+                $sheet->getPageSetup()->setPrintArea('A1:F' . $sheet->getHighestRow());
+
+                // Set to landscape orientation
+                $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+
+                // Fit to 1 page wide by infinite pages tall
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
             },
         ];
     }
