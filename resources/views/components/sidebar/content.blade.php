@@ -72,7 +72,7 @@
 
         <x-sidebar.sublink
             title="Daftar Pengguna"
-            href="account"
+            href="/buttons/text-icon"
             :active="false"
         />
         <x-sidebar.sublink
@@ -98,12 +98,12 @@
 
         <x-sidebar.sublink
             title="Laporan Transaksi"
-            href="/reports/transactions"
+            href="/reports"
             :active="false"
         />
         <x-sidebar.sublink
             title="Laporan Produk"
-            href="/reports/products"
+            href="#"
             :active="false"
         />
     </x-sidebar.dropdown>

@@ -85,7 +85,7 @@
     <div class="container">
         <div class="header">
             <div class="logo">
-                <img src="{{ public_path('storage/images/IMG-20231213-WA0022.jpg') }}" alt="Company Logo">
+                <img src="{{ public_path('IMG-20231213-WA0022.jpg') }}" alt="Company Logo">
             </div>
             <div class="invoice-info">
                 <h2>Invoice</h2>

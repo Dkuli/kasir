@@ -9,39 +9,24 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
-*/
+Route::redirect('/', '/dashboard');
 
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
+    // Profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-
+    // Reports routes
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/export/excel', [ReportController::class, 'exportExcel'])->name('reports.export.excel');
     Route::get('/reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
 
-//account
+    // Account routes
     Route::get('account', [AccountController::class, 'index'])->name('account.index');
 
-//produk
+    // Product routes
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
     Route::post('products', [ProductController::class, 'store'])->name('products.store');
@@ -49,57 +34,33 @@ Route::middleware('auth')->group(function () {
     Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
-//transaksi
-Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
-Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-Route::get('/transactions/search', [TransactionController::class, 'searchProducts'])->name('transactions.search');
-Route::get('/transactions/get-product/{kode_barang}', [TransactionController::class, 'getProduct'])->name('transactions.get-product');
-Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
-Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
-Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
-Route::get('/transactions/success/{id}', [TransactionController::class, 'success'])->name('transactions.success');
-Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
-Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
-Route::get('/transactions/search', [TransactionController::class, 'searchProducts'])->name('transactions.search');
-Route::get('/transactions/get-product/{kode_barang}', [TransactionController::class, 'getProduct'])->name('transactions.get-product');
-Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
-Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
-Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
-Route::get('/transactions/success/{id}', [TransactionController::class, 'success'])->name('transactions.success');
+    // Transactions routes
+    Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
+    Route::post('/transactions', [TransactionController::class, 'store'])->name('transactions.store');
+    Route::get('/transactions/search', [TransactionController::class, 'searchProducts'])->name('transactions.search');
+    Route::get('/transactions/get-product/{kode_barang}', [TransactionController::class, 'getProduct'])->name('transactions.get-product');
+    Route::get('/transactions/generate-code', [TransactionController::class, 'generateTransactionCode'])->name('transactions.generate-code');
+    Route::get('/transactions/history', [TransactionController::class, 'history'])->name('transactions.history');
+    Route::get('/transactions/{id}', [TransactionController::class, 'show'])->name('transactions.show');
+    Route::get('/transactions/success/{id}', [TransactionController::class, 'success'])->name('transactions.success');
 
+    // Import Product routes
+    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import.form');
+    Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
 
-// Rute untuk form import dan import produk
-    Route::get('products/import', [ProductController::class, 'importForm'])->name('products.import');
-    Route::post('products/import', [ProductController::class, 'import']);
-
+    // Category routes
     Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create'); // Add this line
+    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::get('/categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+    Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 });
 
-// useless routes
-// Just to demo sidebar dropdown links active states.
-/*
-    Route::get('/transaction', function () {
-        return view('transaction.transaction');
-    })->middleware(['auth'])->name('transaction.transaction');
-*/
-Route::resource('transactions', TransactionController::class);
+// Buttons demo route (just a showcase)
+Route::get('/buttons/text-icon', function () {
+    return view('buttons-showcase.text-icon');
+})->middleware(['auth'])->name('buttons.text-icon');
 
-
-
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-Route::resource('categories', CategoryController::class);
-
-
-    Route::get('/buttons/text-icon', function () {
-        return view('buttons-showcase.text-icon');
-    })->middleware(['auth'])->name('buttons.text-icon');
-
-
-
-
-
-
-
-
-
+// Auth routes
 require __DIR__ . '/auth.php';
