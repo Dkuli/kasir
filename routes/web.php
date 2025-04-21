@@ -8,11 +8,19 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserController;
+
 
 Route::redirect('/', '/dashboard');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
+
+    Route::get('/dashboard/weekly-product-data', [DashboardController::class, 'getWeeklyProductData'])->name('dashboard.weekly-product-data');
+    // Profile routes
+    Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+    Route::resource('users', UserController::class);
+    Route::get('/dashboard/weekly-product-data', [DashboardController::class, 'getWeeklyProductData'])->name('dashboard.weekly-product-data');
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

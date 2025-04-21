@@ -102,7 +102,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $transaction->created_at->format('d M Y H:i') }}</td>
                             </div>
                         </li>
-                      
+
                     @empty
                         <tr>
                             <td colspan="6" class="px-6 py-4 whitespace-nowrap text-center">Tidak ada transaksi ditemukan.</td>
@@ -117,85 +117,192 @@
 
     @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            var ctx = document.getElementById('weeklyProductChart').getContext('2d');
-            var myChart = new Chart(ctx, {
+<!-- filepath: resources/views/dashboard.blade.php -->
+<!-- Tambahkan di bawah container chart atau sebelum </body> -->
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fetch data from API endpoint
+        fetch('{{ route("dashboard.weekly-product-data") }}')
+            .then(response => response.json())
+            .then(data => {
+                // Initialize weekly product sales chart
+                initWeeklyProductChart(data.weeklySales);
+
+                // Initialize daily revenue chart
+                initDailyRevenueChart(data.dailySales);
+            })
+            .catch(error => console.error('Error fetching chart data:', error));
+
+        // Function to initialize weekly product sales chart
+        function initWeeklyProductChart(data) {
+            const ctx = document.getElementById('weeklyProductChart').getContext('2d');
+
+            // Limit to top 5 products if there are more
+            let labels = data.labels;
+            let quantities = data.quantities;
+            let revenues = data.revenues;
+
+            if (labels.length > 5) {
+                labels = labels.slice(0, 5);
+                quantities = quantities.slice(0, 5);
+                revenues = revenues.slice(0, 5);
+            }
+
+            new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: [], // Label akan diperbarui secara dinamis
-                    datasets: [{
-                        label: 'Analisis Produk Mingguan',
-                        data: [], // Data akan diperbarui secara dinamis
-                        backgroundColor: '#4A90E2', // Warna biru lembut
-                        borderColor: '#0033A0', // Warna biru lebih gelap untuk border
-                        borderWidth: 1
-                    }]
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Jumlah Terjual',
+                            data: quantities,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Total Pendapatan (Rp)',
+                            data: revenues,
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            type: 'line',
+                            yAxisID: 'y1'
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Jumlah Terjual'
+                            }
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function (tooltipItem) {
-                                    return tooltipItem.label + ': Rp ' + tooltipItem.raw.toLocaleString();
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'Total Pendapatan (Rp)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return 'Rp ' + value.toLocaleString('id-ID');
                                 }
                             }
                         }
                     },
-                    scales: {
-                        x: {
-                            beginAtZero: true
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.datasetIndex === 1) {
+                                        label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                                    } else {
+                                        label += context.parsed.y;
+                                    }
+                                    return label;
+                                }
+                            }
                         },
-                        y: {
-                            beginAtZero: true
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Top 5 Produk Terjual Minggu Ini'
                         }
                     }
                 }
             });
+        }
 
-            var fakeData = {
-                produk1: {
-                    labels: ['Produk A', 'Produk B', 'Produk C'],
-                    values: [120000, 150000, 90000]
-                },
-                produk2: {
-                    labels: ['Produk X', 'Produk Y', 'Produk Z'],
-                    values: [100000, 200000, 80000]
-                },
-                produk3: {
-                    labels: ['Produk M', 'Produk N', 'Produk O'],
-                    values: [180000, 110000, 130000]
-                }
-            };
+        // Function to initialize daily revenue chart
+        function initDailyRevenueChart(data) {
+            const ctx = document.getElementById('dailyRevenueChart').getContext('2d');
 
-            document.querySelectorAll('.chart-filter').forEach(filter => {
-                filter.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    var dataFilter = this.getAttribute('data-filter');
-                    updateChart(dataFilter);
-                });
+            // Format dates to be more readable
+            const formattedLabels = data.labels.map(date => {
+                const [year, month, day] = date.split('-');
+                return `${day}/${month}`;
             });
 
-            function updateChart(filter) {
-                if (fakeData[filter]) {
-                    myChart.data.labels = fakeData[filter].labels;
-                    myChart.data.datasets[0].data = fakeData[filter].values;
-                    myChart.update();
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: formattedLabels,
+                    datasets: [{
+                        label: 'Pendapatan Harian',
+                        data: data.values,
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Pendapatan (Rp)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return 'Rp ' + value.toLocaleString('id-ID');
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Tanggal'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Pendapatan Harian Minggu Ini'
+                        }
+                    }
                 }
-            }
-
-            // Memuat data chart default
-            updateChart('produk1');
-
-        });
-
-        function loadAllTransactions() {
-            window.location.href = "{{ url('/transactions/history') }}";
+            });
         }
+    });
     </script>
     @endpush
 </x-app-layout>

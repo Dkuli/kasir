@@ -14,10 +14,10 @@
         </x-slot>
     </x-sidebar.link>
 
-    <!-- Transaksi Dropdown -->
+    <!-- Transaksi Dropdown - Available to all users -->
     <x-sidebar.dropdown
         title="Transaksi"
-        :active="Str::startsWith(request()->route()->uri(), 'transaksi')"
+        :active="request()->routeIs('transactions.*')"
     >
         <x-slot name="icon">
             <x-heroicon-o-cash class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
@@ -25,20 +25,21 @@
 
         <x-sidebar.sublink
             title="Riwayat Transaksi"
-            href="/transactions/history"
-            :active="false"
+            href="{{ route('transactions.history') }}"
+            :active="request()->routeIs('transactions.history')"
         />
         <x-sidebar.sublink
             title="Buat Transaksi Baru"
-            href="/transactions"
-            :active="false"
+            href="{{ route('transactions.index') }}"
+            :active="request()->routeIs('transactions.index')"
         />
     </x-sidebar.dropdown>
 
-    <!-- Master Dropdown -->
+    <!-- Master Dropdown - Only for admin and manager -->
+    @if(auth()->user()->role == 'admin' || auth()->user()->role == 'manager')
     <x-sidebar.dropdown
         title="Master"
-        :active="Str::startsWith(request()->route()->uri(), 'master')"
+        :active="request()->routeIs('products.*') || request()->routeIs('categories.*')"
     >
         <x-slot name="icon">
             <x-heroicon-o-archive class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
@@ -46,25 +47,22 @@
 
         <x-sidebar.sublink
             title="Data Produk"
-            href="/products"
-            :active="false"
+            href="{{ route('products.index') }}"
+            :active="request()->routeIs('products.*')"
         />
         <x-sidebar.sublink
             title="Data Kategori"
-            href="/categories"
-            :active="false"
-        />
-        <x-sidebar.sublink
-            title="Data Supplier"
-            href="#"
-            :active="false"
+            href="{{ route('categories.index') }}"
+            :active="request()->routeIs('categories.*')"
         />
     </x-sidebar.dropdown>
+    @endif
 
-    <!-- Data Data User Dropdown -->
+    <!-- Data User Dropdown - Only for admin -->
+    @if(auth()->user()->role == 'admin')
     <x-sidebar.dropdown
-        title="Data Data User"
-        :active="Str::startsWith(request()->route()->uri(), 'data-user')"
+        title="Data User"
+        :active="request()->routeIs('users.*')"
     >
         <x-slot name="icon">
             <x-heroicon-o-user-group class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
@@ -72,25 +70,17 @@
 
         <x-sidebar.sublink
             title="Daftar Pengguna"
-            href="/buttons/text-icon"
-            :active="false"
-        />
-        <x-sidebar.sublink
-            title="Tambah Pengguna"
-            href="#"
-            :active="false"
-        />
-        <x-sidebar.sublink
-            title="Hak Akses"
-            href="#"
-            :active="false"
+            href="{{ route('users.index') }}"
+            :active="request()->routeIs('users.index')"
         />
     </x-sidebar.dropdown>
+    @endif
 
-    <!-- Report Dropdown -->
+    <!-- Report Dropdown - Only for admin and manager -->
+    @if(auth()->user()->role == 'admin' || auth()->user()->role == 'manager')
     <x-sidebar.dropdown
         title="Laporan"
-        :active="Str::startsWith(request()->route()->uri(), 'report')"
+        :active="request()->routeIs('reports.*')"
     >
         <x-slot name="icon">
             <x-heroicon-o-document-report class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
@@ -98,14 +88,10 @@
 
         <x-sidebar.sublink
             title="Laporan Transaksi"
-            href="/reports"
-            :active="false"
-        />
-        <x-sidebar.sublink
-            title="Laporan Produk"
-            href="#"
-            :active="false"
+            href="{{ route('reports.index') }}"
+            :active="request()->routeIs('reports.*')"
         />
     </x-sidebar.dropdown>
+    @endif
 
 </x-perfect-scrollbar>

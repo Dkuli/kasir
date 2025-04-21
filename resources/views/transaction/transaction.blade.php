@@ -81,7 +81,7 @@
                         <table class="w-full border-t border-gray-300 pt-4">
                             <tr>
                                 <td class="text-left font-semibold">Total Bayar</td>
-                                <td class="text-right font-semibold">Rp. <span id="total_bayar">0.00</span></td>
+                                <td class="text-right font-semibold">Rp. <span id="total_bayar">.000</span></td>
                             </tr>
                             <tr>
                                 <td class="text-left">Bayar</td>
@@ -579,7 +579,7 @@
                     },
                     error: function(xhr) {
                         console.error('Error generating new transaction code:', xhr.responseText);
-                        showNotification('Gagal menghasilkan kode transaksi baru', 'error');
+
                     }
                 });
             }
