@@ -44,7 +44,7 @@ class DashboardController extends Controller
             ->groupBy('products.nama_barang')
             ->orderByDesc('total_sold')
             ->get();
-        
+
         // Get daily sales for current week
         $dailySales = DB::table('transaction_items')
             ->select(
@@ -55,7 +55,7 @@ class DashboardController extends Controller
             ->groupBy('date')
             ->orderBy('date')
             ->get();
-        
+
         return response()->json([
             'weeklySales' => [
                 'labels' => $weeklySales->pluck('product_name'),
