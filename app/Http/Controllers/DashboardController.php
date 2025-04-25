@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    
     public function index()
     {
         // Daily income for today
@@ -19,16 +20,16 @@ class DashboardController extends Controller
         // Total income
         $totalIncome = Transaction::sum('total_harga');
 
-        // Set date range for total income display (for example: current year)
-        $dateRange = '2025-01-01 to ' . Carbon::now()->format('Y-m-d');
+        // Define start and end dates for the date range (e.g., current month)
+        $startDate = Carbon::now()->startOfMonth();
+        $endDate = Carbon::now();
 
         // Recent transactions
         $transactions = Transaction::latest()->limit(5)->get();
 
         // Return the view with data
-        return view('dashboard', compact('dailyIncome', 'dailyCustomers', 'totalIncome', 'dateRange', 'transactions'));
+        return view('dashboard', compact('dailyIncome', 'dailyCustomers', 'totalIncome', 'startDate', 'endDate', 'transactions'));
     }
-
     public function getWeeklyProductData()
     {
         // Get weekly sales by product

@@ -19,7 +19,7 @@
                         <div class="text-3xl font-bold">Rp</div>
                         <div class="ml-4">
                             <p class="text-sm font-semibold">{{ __('Pemasukan Harian') }}</p>
-                            <h5 class="text-2xl mt-2" id="dailyIncome">Rp {{$dailyIncome}}</h5>
+                            <h5 class="text-2xl mt-2" id="dailyIncome">Rp {{ number_format($dailyIncome, 0, ',', '.') }}</h5>
                         </div>
                     </div>
                 </div>
@@ -68,8 +68,8 @@
         <div class="bg-white text-gray-700 shadow-lg p-6 rounded-lg dark:bg-gray-800 dark:text-gray-300">
             <div class="text-center mb-6">
                 <p class="text-sm font-semibold">{{ __('Total Pemasukan') }}</p>
-                <h2 class="text-3xl font-bold mt-2" id="totalIncome">Rp.{{$totalIncome}} </h2>
-                <p class="text-gray-500 dark:text-gray-400" id="dateRange">{{ __('Tanggal - Tanggal') }}</p>
+                <h2 class="text-3xl font-bold mt-2" id="totalIncome">Rp {{ number_format($totalIncome, 0, ',', '.') }}</h2>
+                <p class="text-gray-500 dark:text-gray-400" id="dateRange">{{ $startDate->format('d M Y') }} - {{ $endDate->format('d M Y') }}</p>
             </div>
             <hr class="border-gray-200 dark:border-gray-700">
             <div class="flex justify-between items-center mt-6">
@@ -121,6 +121,7 @@
 <!-- Tambahkan di bawah container chart atau sebelum </body> -->
 
 <script>
+
     document.addEventListener('DOMContentLoaded', function() {
         // Fetch data from API endpoint
         fetch('{{ route("dashboard.weekly-product-data") }}')

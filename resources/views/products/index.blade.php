@@ -8,15 +8,22 @@
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-md rounded-lg p-6">
-                <div class="flex justify-between mb-6">
-                    <a href="{{ route('products.create') }}" class="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-md">
-                        <x-heroicon-o-plus class="w-5 h-5 inline-block mr-1" />
-                        Tambah Produk
-                    </a>
-                    <a href="{{ route('products.import') }}" class="bg-yellow-500 text-white hover:bg-yellow-600 px-4 py-2 rounded-md">
-                        <x-heroicon-o-upload class="w-5 h-5 inline-block mr-1" />
-                        Import Produk
-                    </a>
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex items-center gap-4">
+                        <a href="{{ route('products.create') }}" class="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-md flex items-center">
+                            <x-heroicon-o-plus class="w-5 h-5 mr-1" />
+                            Tambah Produk
+                        </a>
+                        <a href="{{ route('products.import') }}" class="bg-yellow-500 text-white hover:bg-yellow-600 px-4 py-2 rounded-md flex items-center">
+                            <x-heroicon-o-upload class="w-5 h-5 mr-1" />
+                            Import Produk
+                        </a>
+                    </div>
+                    <div>
+                        <a href="{{ route('products.barcodes') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center">
+                            <i class="fas fa-barcode mr-2"></i> Generate Barcodes
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Pencarian -->

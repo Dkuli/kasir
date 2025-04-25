@@ -16,6 +16,10 @@ Route::redirect('/', '/dashboard');
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
 
+
+    Route::get('/products/barcodes', [App\Http\Controllers\ProductController::class, 'barcodes'])->name('products.barcodes');
+    Route::get('/products/by-category', [App\Http\Controllers\ProductController::class, 'getByCategory'])->name('products.by.category');
+    Route::get('/categories/list', [App\Http\Controllers\CategoryController::class, 'getList'])->name('categories.list');
     Route::get('/dashboard/weekly-product-data', [DashboardController::class, 'getWeeklyProductData'])->name('dashboard.weekly-product-data');
     // Profile routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');

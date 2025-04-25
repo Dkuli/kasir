@@ -23,8 +23,9 @@
     </style>
 
     <!-- Scripts -->
+    
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ asset('js/transaction.js') }}" defer></script>
 </head>
 
@@ -66,12 +67,11 @@
                 </main>
 
                 <!-- Page Footer -->
+                <!-- Page Footer -->
                 <x-footer />
                 @stack('scripts')
-                <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
             </div>
-        </div>
     </div>
 </body>
 </html>

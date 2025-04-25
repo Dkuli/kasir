@@ -51,4 +51,13 @@ class CategoryController extends Controller
 
         return redirect()->route('categories.index')->with('success', 'Kategori berhasil dihapus!');
     }
+
+    public function getList()
+    {
+        // Return categories with proper field mapping
+      //  return Category::select('id', 'name as nama_kategori')->get();
+
+        // Alternatively, if you've already modified your JS to use "name":
+         return Category::select('id', 'name')->get();
+    }
 }

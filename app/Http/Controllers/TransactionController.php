@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Transaction;
 use App\Models\Product;
+use App\Models\Member;
+use App\Models\Discount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -61,17 +64,145 @@ class TransactionController extends Controller
     private function validateTransactionData(Request $request)
     {
         return $request->validate([
-            'kode_transaksi' => 'required|unique:transactions',
+            'kode_transaksi' => 'required|string',
             'total_harga' => 'required|numeric|min:0',
             'bayar' => 'required|numeric|min:0',
             'kembali' => 'required|numeric|min:0',
-            'items' => 'required|array|min:1',
+            'items' => 'required|array',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.discount' => 'nullable|numeric|min:0',
+            'member_id' => 'nullable|exists:members,id',
+            'points_redeemed' => 'nullable|integer|min:0',
+            'discount_code' => 'nullable|exists:discounts,code',
+            'discount_amount' => 'nullable|numeric|min:0',
         ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors()
+        ], 422);
     }
 
+    try {
+        DB::beginTransaction();
+
+        $discountAmount = $request->discount_amount ?? 0;
+        $pointsRedeemed = $request->points_redeemed ?? 0;
+        $pointsEarned = 0;
+        $member = null;
+
+        // Handle member if provided
+        if ($request->member_id) {
+            $member = Member::findOrFail($request->member_id);
+
+            // Handle points redemption if any
+            if ($pointsRedeemed > 0) {
+                if ($pointsRedeemed > $member->points) {
+                    throw new \Exception('Poin yang diredeem melebihi saldo poin member');
+                }
+
+                // Convert points to discount (assuming 1 point = Rp 1)
+                $pointsDiscountAmount = $pointsRedeemed;
+                $discountAmount += $pointsDiscountAmount;
+            }
+        }
+
+        // Create transaction
+        $transaction = Transaction::create([
+            'kode_transaksi' => $request->kode_transaksi,
+            'total_harga' => $request->total_harga,
+            'bayar' => $request->bayar,
+            'kembali' => $request->kembali,
+            'user_id' => auth()->id(),
+            'member_id' => $request->member_id,
+            'points_redeemed' => $pointsRedeemed,
+            'discount_amount' => $discountAmount
+        ]);
+
+        // Process discount code if provided
+        if ($request->discount_code) {
+            $discount = Discount::where('code', $request->discount_code)
+                               ->where('is_active', true)
+                               ->first();
+
+            if (!$discount || !$discount->isValid()) {
+                throw new \Exception('Kode diskon tidak valid');
+            }
+
+            // Record the discount used
+            $transaction->discount_code = $discount->code;
+            $transaction->save();
+        }
+
+        // Calculate total for points (before discounts)
+        $totalForPoints = 0;
+
+        // Add items to transaction
+        foreach ($request->items as $item) {
+            $product = Product::find($item['product_id']);
+            $subtotal = $item['quantity'] * $item['price'];
+            $itemDiscount = $item['discount'] ?? 0;
+
+            $transaction->products()->attach($item['product_id'], [
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'discount' => $itemDiscount,
+                'subtotal' => $subtotal - $itemDiscount
+            ]);
+
+            // Update stock
+            $product->stok -= $item['quantity'];
+            $product->save();
+
+            // Add to points total
+            $totalForPoints += $subtotal;
+        }
+
+        // Award points if member exists (typically 1 point per 1000 spent)
+        if ($member) {
+            $pointsRate = 1 / 1000; // 1 point for every Rp 1,000
+            $pointsEarned = floor($totalForPoints * $pointsRate);
+
+            if ($pointsEarned > 0) {
+                $transaction->points_earned = $pointsEarned;
+                $transaction->save();
+
+                $member->addPoints($pointsEarned, $transaction->id);
+            }
+
+            // Process points redemption
+            if ($pointsRedeemed > 0) {
+                $member->redeemPoints($pointsRedeemed, $transaction->id);
+            }
+        }
+
+        DB::commit();
+
+        // Load related products for the receipt
+        $transaction->load('products');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Transaksi berhasil',
+            'transaction' => $transaction,
+            'pointsEarned' => $pointsEarned
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        Log::error('Transaction error: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+        ], 500);
+    }
+}
     private function createTransaction(array $data)
     {
         return Transaction::create([
@@ -166,6 +297,31 @@ class TransactionController extends Controller
     // Menampilkan view sukses transaksi
     return view('transaction.success', compact('transaction'));
 }
+
+
+public function getProductByBarcode($barcode)
+{
+    // Look for product by kode_barang first, then fallback to barcode field, then to ID
+    $product = \App\Models\Product::where('kode_barang', $barcode)
+        ->orWhere('barcode', $barcode)
+        ->orWhere('id', $barcode)
+        ->first();
+
+    if ($product) {
+        return response()->json([
+            'success' => true,
+            'product' => $product
+        ]);
+    }
+
+    return response()->json([
+        'success' => false,
+        'message' => 'Product not found'
+    ]);
+
+
+}
+
 
 }
 

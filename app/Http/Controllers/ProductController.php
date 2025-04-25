@@ -126,4 +126,28 @@ class ProductController extends Controller
                            ->get();
         return response()->json($products);
     }
+
+    public function getByCategory(Request $request)
+{
+    $categoryId = $request->category_id;
+
+    if ($categoryId === 'all') {
+        return Product::with('category')->get();
+    }
+
+    return Product::where('category_id', $categoryId)->get();
+}
+
+public function barcodes(Request $request)
+{
+    $productIds = $request->input('products', []);
+
+    if (empty($productIds)) {
+        $products = \App\Models\Product::all();
+    } else {
+        $products = \App\Models\Product::whereIn('id', $productIds)->get();
+    }
+
+    return view('products.barcodes', compact('products'));
+}
 }
