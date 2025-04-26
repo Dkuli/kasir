@@ -115,6 +115,30 @@
                         </div>
                     </div>
 
+                    <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                        <div class="flex items-center mb-4">
+                            <x-icons.percent-badge class="w-6 h-6 text-gray-500 mr-2" />
+                            <span class="font-medium text-gray-700">Diskon</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex space-x-2">
+                                <div class="relative flex-1">
+                                    <input type="text" id="discount_code" placeholder="Masukkan kode diskon"
+                                        class="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <button type="button" id="btn_apply_discount" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm">
+                                    Terapkan
+                                </button>
+                            </div>
+                            <div id="discount_info" class="hidden">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span id="discount_name" class="text-gray-700">Nama Diskon</span>
+                                    <span class="text-red-600">- Rp <span id="discount_amount">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Payment Info -->
                     <div class="bg-white rounded-lg shadow-md p-4">
                         <div class="mb-4">
@@ -213,6 +237,12 @@
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
             $(document).ready(function() {
+                const $discount_code = $('#discount_code');
+const $discount_info = $('#discount_info');
+const $discount_name = $('#discount_name');
+const $discount_amount = $('#discount_amount');
+const $btn_apply_discount = $('#btn_apply_discount');
+let currentDiscount = null;
                 let orders = [];
                 let allProducts = [];
                 let categories = [];
@@ -472,10 +502,18 @@
                 }
 
                 function calculateTotal() {
-                    let total = orders.reduce((sum, order) => sum + (order.harga * order.jumlah), 0);
-                    $total_bayar.text(total.toLocaleString('id-ID'));
-                    calculateKembali();
-                }
+    let subtotal = orders.reduce((sum, order) => sum + (order.harga * order.jumlah), 0);
+    let discountValue = currentDiscount ? parseFloat(currentDiscount.amount) : 0;
+
+    // Make sure discount doesn't exceed subtotal
+    discountValue = Math.min(discountValue, subtotal);
+
+    let total = subtotal - discountValue;
+
+    // Update UI
+    $total_bayar.text(total.toLocaleString('id-ID'));
+    calculateKembali();
+}
 
                 function calculateKembali() {
                     const bayar = parseFloat($input_bayar.val()) || 0;
@@ -602,6 +640,85 @@
                     });
                 }
 
+                $btn_apply_discount.on('click', function() {
+    applyDiscount();
+});
+
+function applyDiscount() {
+    const code = $discount_code.val().trim();
+
+    if (!code) {
+        showNotification('Masukkan kode diskon', 'warning');
+        return;
+    }
+
+    if (orders.length === 0) {
+        showNotification('Tambahkan produk terlebih dahulu', 'warning');
+        $discount_code.val('');
+        return;
+    }
+
+    // Show loading
+    $btn_apply_discount.prop('disabled', true).html('<span class="inline-block animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></span>');
+
+    $.ajax({
+        url: '{{ route('discounts.check') }}',
+        method: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}',
+            code: code,
+            orders: orders,
+            total_amount: parseFloat($total_bayar.text().replace(/\./g, '').replace(',', '.'))
+        },
+        success: function(response) {
+            $btn_apply_discount.prop('disabled', false).text('Terapkan');
+
+            if (response.valid) {
+                currentDiscount = {
+                    code: code,
+                    name: response.discount_name,
+                    amount: response.discount_amount
+                };
+
+                // Show discount info
+                $discount_name.text(response.discount_name);
+                $discount_amount.text(parseFloat(response.discount_amount).toLocaleString('id-ID'));
+                $discount_info.removeClass('hidden');
+
+                // Update total after discount
+                calculateTotal();
+
+                showNotification('Diskon berhasil diterapkan', 'success');
+            } else {
+                showNotification(response.message || 'Kode diskon tidak valid', 'error');
+                resetDiscount();
+            }
+        },
+        error: function(xhr) {
+            $btn_apply_discount.prop('disabled', false).text('Terapkan');
+            console.error('Error checking discount:', xhr.responseText);
+            showNotification('Gagal memeriksa kode diskon', 'error');
+        }
+    });
+}
+
+// Function to reset discount
+function resetDiscount() {
+    currentDiscount = null;
+    $discount_code.val('');
+    $discount_info.addClass('hidden');
+    calculateTotal();
+}
+
+// Add discount reset to the reset transaction function
+function resetTransaction() {
+    orders = [];
+    resetDiscount(); // Add this line to existing function
+    updateOrderList();
+    calculateTotal();
+    $input_bayar.val('');
+    generateNewTransactionCode();
+}
                 // Submit transaction
                 $('#transaction_form').on('submit', function(e) {
                     e.preventDefault();
@@ -632,17 +749,19 @@
                 });
 
                 function submitTransaction() {
-                    const formData = {
-                        kode_transaksi: $kode_transaksi_input.val(),
-                        total_harga: parseFloat($total_bayar.text().replace(/\./g, '').replace(',', '.')),
-                        bayar: parseFloat($input_bayar.val()),
-                        kembali: parseFloat($total_kembali.text().replace(/\./g, '').replace(',', '.')),
-                        items: orders.map(order => ({
-                            product_id: order.id,
-                            quantity: order.jumlah,
-                            price: order.harga
-                        }))
-                    };
+    const formData = {
+        kode_transaksi: $kode_transaksi_input.val(),
+        total_harga: parseFloat($total_bayar.text().replace(/\./g, '').replace(',', '.')),
+        bayar: parseFloat($input_bayar.val()),
+        kembali: parseFloat($total_kembali.text().replace(/\./g, '').replace(',', '.')),
+        items: orders.map(order => ({
+            product_id: order.id,
+            quantity: order.jumlah,
+            price: order.harga
+        })),
+        discount_code: currentDiscount ? currentDiscount.code : null,
+        discount_amount: currentDiscount ? parseFloat(currentDiscount.amount) : 0
+    };
 
                     // Show loading indicator
                     Swal.fire({
@@ -695,24 +814,35 @@
 
                         // Build product list html
                         let productsHtml = '<ul class="list-disc list-inside">';
-                        if (transaction.products && Array.isArray(transaction.products) && transaction.products.length >
-                            0) {
-                            transaction.products.forEach(product => {
-                                productsHtml +=
-                                    `<li>${product.nama_barang} - ${product.pivot.quantity} x Rp ${formatRupiah(product.pivot.price)}</li>`;
-                            });
-                        } else {
-                            productsHtml = '<p>Data produk tidak tersedia</p>';
-                        }
-                        productsHtml += '</ul>';
+        if (transaction.products && Array.isArray(transaction.products) && transaction.products.length > 0) {
+            transaction.products.forEach(product => {
+                productsHtml +=
+                    `<li>${product.nama_barang} - ${product.pivot.quantity} x Rp ${formatRupiah(product.pivot.price)}</li>`;
+            });
+        } else {
+            productsHtml = '<p>Data produk tidak tersedia</p>';
+        }
+        productsHtml += '</ul>';
 
-                        Swal.fire({
-                            title: 'Transaksi Berhasil!',
-                            html: `
+        // Add discount info if exists
+        let discountHtml = '';
+        if (transaction.discount_amount && transaction.discount_amount > 0) {
+            discountHtml = `
+                <div class="mt-3">
+                    <p><strong>Subtotal:</strong> Rp ${formatRupiah(parseFloat(transaction.total_harga) + parseFloat(transaction.discount_amount))}</p>
+                    <p class="text-red-600"><strong>Diskon:</strong> - Rp ${formatRupiah(transaction.discount_amount)}</p>
+                </div>
+            `;
+        }
+
+        Swal.fire({
+            title: 'Transaksi Berhasil!',
+            html: `
                 <div class="text-left">
                     <p><strong>Kode Transaksi:</strong> ${transaction.kode_transaksi}</p>
                     <p><strong>Tanggal:</strong> ${tanggal} ${waktu}</p>
                     <p><strong>Kasir:</strong> ${kasir}</p>
+                    ${discountHtml}
                     <p><strong>Total:</strong> Rp ${formatRupiah(transaction.total_harga)}</p>
                     <p><strong>Dibayar:</strong> Rp ${formatRupiah(transaction.bayar)}</p>
                     <p><strong>Kembali:</strong> Rp ${formatRupiah(transaction.kembali)}</p>
@@ -742,17 +872,20 @@
                 }
                 // Add this new function to properly reset for a new transaction
                 function resetForNewTransaction() {
-                    // Clear orders array
-                    orders = [];
-                    updateOrderList();
-                    calculateTotal();
+    // Clear orders array
+    orders = [];
+    updateOrderList();
+    calculateTotal();
 
-                    // Clear payment amount input
-                    $input_bayar.val('');
+    // Clear payment amount input
+    $input_bayar.val('');
 
-                    // Get a new transaction code from the server
-                    fetchNewTransactionCode();
-                }
+    // Reset discount
+    resetDiscount();
+
+    // Get a new transaction code from the server
+    fetchNewTransactionCode();
+}
 
                 // This function requests a fresh transaction code from server
                 function fetchNewTransactionCode() {

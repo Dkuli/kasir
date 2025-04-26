@@ -6,9 +6,18 @@ use App\Models\Discount;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Services\DiscountService;
 
 class DiscountController extends Controller
 {
+
+    protected $discountService;
+
+    public function __construct(DiscountService $discountService)
+    {
+        $this->discountService = $discountService;
+    }
+
     public function index()
     {
         $discounts = Discount::with(['product', 'category'])->latest()->get();
@@ -122,4 +131,92 @@ class DiscountController extends Controller
 
         return response()->json(['discounts' => $discounts]);
     }
+
+
+    public function checkDiscount(Request $request)
+{
+    $code = $request->input('code');
+    $productIds = $request->input('products', []);
+    $totalAmount = $request->input('total_amount', 0);
+
+    // Find discount by code
+    $discount = Discount::where('code', $code)
+        ->where('is_active', true)
+        ->first();
+
+    if (!$discount) {
+        return response()->json([
+            'valid' => false,
+            'message' => 'Kode diskon tidak valid atau tidak ditemukan.'
+        ]);
+    }
+
+    // Check if discount is valid (not expired)
+    if (!$discount->isValid()) {
+        return response()->json([
+            'valid' => false,
+            'message' => 'Kode diskon sudah tidak berlaku.'
+        ]);
+    }
+
+    // Check minimum purchase if set
+    if ($discount->min_purchase && $totalAmount < $discount->min_purchase) {
+        return response()->json([
+            'valid' => false,
+            'message' => 'Minimal belanja Rp ' . number_format($discount->min_purchase, 0, ',', '.')
+        ]);
+    }
+
+    // Check if products in cart are eligible for this discount
+    $eligible = true;
+    $eligibleItems = [];
+
+    if ($discount->applies_to === 'product' && $discount->product_id) {
+        $eligible = in_array($discount->product_id, $productIds);
+        $eligibleItems = [$discount->product_id];
+    } else if ($discount->applies_to === 'category' && $discount->category_id) {
+        // Get all product IDs in this category
+        $categoryProductIds = Product::where('category_id', $discount->category_id)->pluck('id')->toArray();
+        $eligibleItems = array_intersect($productIds, $categoryProductIds);
+        $eligible = !empty($eligibleItems);
+    }
+
+    if (!$eligible && $discount->applies_to !== 'all') {
+        return response()->json([
+            'valid' => false,
+            'message' => 'Diskon ini tidak berlaku untuk produk yang Anda pilih.'
+        ]);
+    }
+
+    // Calculate discount amount
+    $discountAmount = 0;
+    $message = '';
+
+    if ($discount->type === 'percentage') {
+        $applyToTotal = $discount->applies_to === 'all' ? $totalAmount :
+            array_sum(array_map(function($order) use ($eligibleItems) {
+                return in_array($order['id'], $eligibleItems) ? $order['harga'] * $order['jumlah'] : 0;
+            }, $request->input('orders', [])));
+
+        $discountAmount = $applyToTotal * ($discount->value / 100);
+        $message = 'Diskon ' . $discount->value . '% dari total belanja';
+    } else if ($discount->type === 'fixed') {
+        $discountAmount = $discount->value;
+        $message = 'Potongan harga sebesar Rp ' . number_format($discount->value, 0, ',', '.');
+    }
+
+    // Apply maximum discount if set
+    if ($discount->max_discount && $discountAmount > $discount->max_discount) {
+        $discountAmount = $discount->max_discount;
+        $message .= ' (maksimal Rp ' . number_format($discount->max_discount, 0, ',', '.') . ')';
+    }
+
+    return response()->json([
+        'valid' => true,
+        'discount' => $discount,
+        'eligible_items' => $eligibleItems,
+        'discount_amount' => $discountAmount,
+        'message' => $message
+    ]);
+}
 }

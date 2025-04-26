@@ -58,6 +58,20 @@
     </x-sidebar.dropdown>
     @endif
 
+
+<!-- Discounts Section - Only for admin and manager -->
+@if(auth()->user()->role == 'admin' || auth()->user()->role == 'manager')
+<x-sidebar.link
+    title="Diskon"
+    href="{{ route('discounts.index') }}"
+    :isActive="request()->routeIs('discounts.*')"
+>
+    <x-slot name="icon">
+        <x-icons.percent-badge class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
+    </x-slot>
+</x-sidebar.link>
+@endif
+
     <!-- Data User Dropdown - Only for admin -->
     @if(auth()->user()->role == 'admin')
     <x-sidebar.dropdown

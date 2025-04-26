@@ -11,9 +11,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use App\Services\DiscountService;
 
 class TransactionController extends Controller
 {
+
+    protected $discountService;
+
+    public function __construct(DiscountService $discountService)
+    {
+        $this->discountService = $discountService;
+    }
     public function index()
     {
         $products = Product::all();
@@ -28,24 +36,90 @@ class TransactionController extends Controller
         DB::beginTransaction();
 
         try {
-            // Membuat transaksi baru
-            $transaction = $this->createTransaction($validatedData);
+            // Handle discount if provided
+            $discountAmount = 0;
 
-            // Memproses item transaksi (produk dan update stok)
+            if ($request->discount_code) {
+                $items = array_map(function($item) {
+                    return [
+                        'product_id' => $item['product_id'],
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price']
+                    ];
+                }, $request->items);
+
+                $totalBeforeDiscount = array_sum(array_map(function($item) {
+                    return $item['price'] * $item['quantity'];
+                }, $request->items));
+
+                $discountResult = $this->discountService->processDiscount(
+                    $request->discount_code,
+                    $items,
+                    $totalBeforeDiscount
+                );
+
+                if (!$discountResult['valid']) {
+                    throw new \Exception($discountResult['message']);
+                }
+
+                $discountAmount = $discountResult['discount_amount'];
+            }
+
+            // Create transaction with discount
+            $transaction = $this->createTransaction($validatedData, $request->discount_code, $discountAmount);
+
+            // Process transaction items
             $this->processTransactionItems($transaction, $validatedData['items']);
 
-            // Commit transaksi database
+            // Handle member points if applicable
+            $this->processMemberPoints($transaction, $request);
+
+            // Commit database transaction
             DB::commit();
 
-            // Return JSON response
-            return response()->json(['success' => true, 'transaction' => $transaction->load('products')]);
-
+            // Return success response with transaction
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaksi berhasil',
+                'transaction' => $transaction->load('products')
+            ]);
         } catch (\Exception $e) {
-            // Rollback jika terjadi kesalahan
-            DB::rollback();
+            DB::rollBack();
+            Log::error('Transaction error: ' . $e->getMessage());
 
-            // Mengembalikan respon kesalahan
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    private function processMemberPoints($transaction, $request)
+    {
+        if (!$request->member_id) {
+            return;
+        }
+
+        $member = Member::findOrFail($request->member_id);
+        $pointsEarned = 0;
+        $pointsRedeemed = $request->points_redeemed ?? 0;
+
+        // Calculate points earned from purchase
+        $subtotal = array_sum(array_map(function($item) {
+            return $item['price'] * $item['quantity'];
+        }, $request->items));
+
+        if ($member->tier && $member->tier->points_multiplier > 0) {
+            $pointsEarned = floor($subtotal * $member->tier->points_multiplier / 100);
+            if ($pointsEarned > 0) {
+                $member->addPoints($pointsEarned, $transaction->id);
+            }
+        }
+
+        // Process points redemption
+        if ($pointsRedeemed > 0) {
+            $member->redeemPoints($pointsRedeemed, $transaction->id);
         }
     }
 
@@ -138,6 +212,9 @@ class TransactionController extends Controller
             $transaction->save();
         }
 
+        $transaction->discount_amount = $request->discount_amount ?? 0;
+        $transaction->save();
+
         // Calculate total for points (before discounts)
         $totalForPoints = 0;
 
@@ -203,18 +280,22 @@ class TransactionController extends Controller
         ], 500);
     }
 }
-    private function createTransaction(array $data)
-    {
-        return Transaction::create([
-            'kode_transaksi' => $data['kode_transaksi'],
-            'total_harga' => $data['total_harga'],
-            'bayar' => $data['bayar'],
-            'kembali' => $data['kembali'],
-            'user_id' => auth()->id(),
+private function createTransaction(array $data, ?string $discountCode = null, float $discountAmount = 0)
+{
+    $transaction = Transaction::create([
+        'kode_transaksi' => $data['kode_transaksi'],
+        'total_harga' => $data['total_harga'],
+        'bayar' => $data['bayar'],
+        'kembali' => $data['kembali'],
+        'user_id' => auth()->id(),
+        'member_id' => $data['member_id'] ?? null,
+        'points_redeemed' => $data['points_redeemed'] ?? 0,
+        'discount_code' => $discountCode,
+        'discount_amount' => $discountAmount
+    ]);
 
-        ]);
-
-    }
+    return $transaction;
+}
 
     private function processTransactionItems(Transaction $transaction, array $items)
     {

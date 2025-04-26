@@ -7,14 +7,32 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\MemberTierController;
 
 
 Route::redirect('/', '/dashboard');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::middleware('auth')->group(function () {
+
+
+    Route::post('/discounts/check', [DiscountController::class, 'checkDiscount'])->name('discounts.check');
+    Route::resource('discounts', DiscountController::class);
+    Route::get('/discounts/applicable', [DiscountController::class, 'getApplicableDiscounts'])->name('discounts.applicable');
+
+
+Route::resource('members', MemberController::class);
+Route::get('/members/search', [MemberController::class, 'search'])->name('members.search');
+Route::post('/members/{member}/adjust-points', [MemberController::class, 'adjustPoints'])->name('members.adjust-points');
+
+
+Route::resource('member-tiers', MemberTierController::class);
+
+Route::get('/transactions/product-by-barcode/{barcode}', [TransactionController::class, 'getProductByBarcode'])->name('transactions.product-by-barcode');
 
 
     Route::get('/products/barcodes', [App\Http\Controllers\ProductController::class, 'barcodes'])->name('products.barcodes');
